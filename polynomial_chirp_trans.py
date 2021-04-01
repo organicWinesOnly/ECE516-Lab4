@@ -9,9 +9,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from math import inf
 from scipy.integrate import romb
-from scipy.signal import convolve, stft
+from scipy.signal import convolve, stft, get_window, hilbert
 from scipy.signal.windows import gaussian
-from numpy.polynomial.polynomial import Polynomial
+from numpy.polynomial.polynomial import Polynomial, polyval
 import matplotlib.cm as cm
 
 #  complete
@@ -24,48 +24,104 @@ def TesterFunc(data, alpha):
         sum_ = sum_ + alpha[i] * data ** i
     return sum_
 
+
 class PolynomialCT:
     """  Calculate the Polynomial Chirp Transformation parameters
+
+        ===== Attributes =======
+        alpha: polynomial coefficients from highest to lowest order
+        z: signal data
+        fs: sampling rate
+        win_size: Size of sampling window
+
+        hidden:
+        _polynomial: underlying polynomial funtion
+        _current_pct: current estimate of the polynomial chirplet
     """
     # not
-    def __init__(self, data, initial_params=None):
+    def __init__(self, data, fs=2*np.pi, win_size=256, poly_order=6, initial_alpha=None):
         """ Initialize class. 
         """ 
-        if initial_params is None:
-            alpha = np.random.randint(-5, 5, 21)
+        if initial_alpha is None:
+            alpha = np.zeros(poly_order + 1)
         else:
-            alpha = alpha
+            alpha = initial_alpha
         self.alpha = alpha
+
         self.z = data
+        self.fs = fs
+        self.poly_order = poly_order
         self._polynomial = Polynomial(alpha)  
-        # current frequency values for PCT pct:(time,freq)-> (time, freq)
-        self._freq = np.linspace(-1,1, 2+2 ** 6, endpoint=False)[1:]
         # transform frequency
-        self._freq = self._freq / (1 - self._freq ** 2)
-        self._current_pct = np.zeros((self.z.size, self._freq.size),
-                                     dtype='complex')
-        self._freq_integral_factor =(1 + self._freq ** 2)/ ((1 - self._freq ** 2) ** 2)
+        num_time_bins = self.z.size // win_size
+        num_freq_bins = win_size // 2
+        self.win_size = win_size
+        self._current_pct = np.zeros((num_freq_bins, num_time_bins), dtype='complex')
 
     # complete
     def _FRotationOperator(self, times):
-        """ Calculate the nonlinear Frequency Rotation operator for a given dataset
-            <z>, using parameters <alpha>.
+        """ Calculate the nonlinear Frequency Rotation operator for self.z, 
+            using parameters self.alpha for times <times>.
+
+            Output: (times.size,) numpy.ndarray
         """
-        sum_ = np.zeros(times.shape, dtype='complex')
+        sum_ = np.zeros(times.size, dtype='complex')
         for i in range(2, self._polynomial.degree() + 2):
             sum_ = sum_ + 1/ i * self.alpha[i-2] * times ** i
         return np.exp(-1j * sum_)
 
     # complete
-    def _FShiftOperator(self, times, t0):
-        """ Calculate the nonlinear Frequency Shift operator for a given dataset <z>,
-            using parameters <alpha>.
+    def _FShiftOperator(self, times):
+        """ Calculate the nonlinear Frequency Shift operator for self.z, 
+            using parameters self.alpha for times <times>.
+
+            Output: (num_time_bins, win_size) numpy.ndarray
         """
-        sum_ = np.zeros(times.shape, dtype='complex')
-        for i in range(2, self._polynomial.degree() + 2):
-            sum_ = sum_ + self.alpha[i-2] * t0 ** (i-1) * times
-        return np.exp(1j * sum_)
+        num_time_bins = self.z.size // self.win_size
+        shift_results = np.zeros((num_time_bins, self.win_size), dtype='complex')
+        for i in range(num_time_bins):
+            t = int(i * self.win_size)
+            time_win = times[t: t + self.win_size]
+
+            sum_ = np.zeros(self.win_size, dtype='complex')
+            for k in range(2, self._polynomial.degree() + 2):
+                mid_value = time_win.size // 2
+                sum_ = sum_ + self.alpha[k-2] * time_win ** (k-1) * mid_value #time_win[0]
+            shift_results[i, :] =  np.exp(1j * sum_)
+        return shift_results
     
+    def _STFT(self):
+        """ Helper function for calculating the PCT. This function does all the
+            heavy lifting. Output the PCT(t, k) where k is the frequency index.
+            The STFT is computed with no overlap and a gaussian window. 
+
+            Output: (num_freq_bins, num_time_bins) numpy.ndarray
+        """
+        num_time_bins = self.z.size // self.win_size
+        num_freq_bins = self.win_size // 2
+        Zxx = np.zeros((num_freq_bins, num_time_bins), dtype='complex')
+
+        times = np.arange(self.z.size) // self.fs  # divide by sampling rate
+        freq_rot = self._FRotationOperator(times)
+        freq_shift = self._FShiftOperator(times)
+        window = 1/(np.sqrt(2 * np.pi) * self.win_size // 2) *\
+                 get_window(('gaussian', self.win_size // 2), self.win_size)  # gaussian window
+
+        for i in range(num_time_bins):
+            t = i * self.win_size
+            x = self.z[t:t + self.win_size] *\
+                    freq_rot[t:t + self.win_size]
+            # further transform the signal with the correct shift operator
+            x_transform = x * freq_shift[i, :] * window
+            Zxx[:, i] = np.fft.fft(x_transform)[:num_freq_bins]
+        
+        t = np.arange(0,num_time_bins) * (self.win_size / self.fs)
+        f = np.arange(0,num_freq_bins) * (self.fs / self.win_size)
+        plt.pcolormesh(t,f,np.abs(Zxx), cmap=cm.get_cmap('jet'),shading='gouraud')
+        plt.ylabel('freq')
+        plt.show()
+        return Zxx
+
     # complete
     def REN(self, pct):
         # frequency correction due to infinitite integral
@@ -79,74 +135,75 @@ class PolynomialCT:
             This function updates the following attributes: polynomial, ,
             _current_pct, and alpha
             === params ===
-
-            alpha: array of paramaters for the transform
-            z: analytic signal data
+            initial_state: If True the polynomial parameters wont be estimated. 
         """
         # update polynomial
         print("PCT running...")
+        # recalculate the params of the instantaneous frequency
         if not initial_state: 
-            # recalculate the params of the instantaneous velocity
             # generate a line
-            y_fit = np.max(np.abs(self._current_pct), axis=0)
-            x_fit = np.arange(y_fit.size)
-            fitted_polynomial = self._polynomial.fit(x_fit,
-                                                     y_fit,
-                                                     self._polynomial.degree())
-            self._polynomial = fitted_polynomial.convert()
+            print(self.alpha)
+            num_time_bins = self.z.size // self.win_size
+            num_freq_bins = self.win_size // 2
+            # scale the bins
+            freq_values = 2 * np.arange(0,num_freq_bins) *\
+                          (self.fs / self.win_size) 
+            tfd_peak = freq_values[np.argmax(np.abs(self._current_pct), axis=0)]
+            time_values = np.linspace(0,num_time_bins,tfd_peak.size) *\
+                          (self.win_size / self.fs)
+            fitted_polynomial = self._polynomial.fit(time_values,
+                                                     tfd_peak,
+                                                     self.poly_order)
+            self._polynomial = fitted_polynomial.convert().copy()
             self.alpha = self._polynomial.coef
-            plt.plot(x_fit, y_fit, 'r.')
-            plt.plot(x_fit, TesterFunc(x_fit/ 268 , self.alpha), 'g')
+            plt.plot(time_values , tfd_peak, 'r.')
+            plt.plot(time_values, polyval(time_values, self.alpha, 'k'))
             plt.show()
 
         # transform signal and compute the STFT
-        times = np.arange(self.z.size) / 268  # divide by sampling rate
-        freq_rot = self._FRotationOperator(times)
-        window = ('gaussian', np.std(self.z))  # gaussian window
-        freq_shift = self._FShiftOperator(times)
-        f_t = self.z * freq_rot * freq_shift
-        # complete the stft with gaussian window
-        _, _, self._current_pct = stft(f_t, fs=268, window=window,nperseg=33)
-        print(self._current_pct.shape)
-        print(times.shape)
-        
-
-        #freq_time = np.outer(self._freq, times)
-        # for t0 in range(times.size):
-        #     freq_rot = self._FRotationOperator(times)
-        #     freq_shift = self._FShiftOperator(times, times[t0])
-        #     window = gaussian(2048, np.std(self.z.size)/ 2) # gaussian window
-        #     window = window.reshape((-1,1))
-        #     # integrate
-        #     print(window.ndim)
-        #     f_t = self.z * freq_rot * freq_shift * np.exp(-1j * freq_time)
-        #     print(f_t.ndim)
-        #     # convolve transformed signal with window
-        #     self._current_pct[t0, :] = convolve(f_t, window)
-        print("PCT end")
+        self._current_pct = self._STFT()
+        print("PCT end.")
 
     # complete
-    def Run(self, err, max_iter=1000):
+    def Run(self, err, max_iter=100, iter_count=False):
         """ Run the system.
 
             === params ===
-            max_iter: maximum number of runs
             err: stopping condition form 0 < err < 1
+            max_iter: maximum number of runs
+            iter_count: if True return the number of iterations required to
+                        reach termination criteria
         """
-        change_in_ren = inf
-        count = 1
+        change_in_ren = inf  # Current change in Renyi entropy
         self.PCT(True)
+        count = 0
         while (change_in_ren > err) and (max_iter > count):
-            print(count)
             prev_pct = self._current_pct.copy()
             self.PCT()
             curr_pct = self._current_pct
-            REN_prev = self.REN(prev_pct)
-            REN_curr = self.REN(curr_pct)
-            change_in_ren = np.abs((REN_curr - REN_prev) / REN_curr) 
+            #REN_prev = self.REN(prev_pct)
+            #REN_curr = self.REN(curr_pct)
+            #change_in_ren = np.abs((REN_curr - REN_prev) / REN_curr) 
             count += 1
+
 if __name__ == "__main__":
-    sig_data = np.loadtxt('data/butt_filt_data.csv', skiprows=1000,
-                          max_rows=4340)
-    pctTest = PolynomialCT(sig_data)
-    pctTest.Run(0.0005, 5)
+    #sig_data = np.loadtxt('data/butt_filt_data.csv', skiprows=1000,
+    #                      max_rows=10340)
+    #pctTest = PolynomialCT(sig_data, 268, 512)
+    #pctTest.Run(0.0005, 7)
+    #print(pctTest.alpha)
+    
+    # Test Case
+    def s(t):
+        return np.sin(2*np.pi*(10*t + 5/4*t**2 + 1/9*t**3 - 1/160*t** 4))
+    
+    sample_freq = 200  # hz
+    time = np.arange(0, 15, 1/400)
+    # noise from a normal distribution with (mean, std) = (0, sqrt(3))
+    np.random.seed(123)
+    noise = np.random.normal(0, np.sqrt(3),time.size)
+    discrete_signal = s(time) #+ noise
+    signal = hilbert(discrete_signal)
+    pctTest = PolynomialCT(signal, sample_freq, 516, poly_order=4)
+    pctTest.Run(0.001, 3)
+    print(pctTest.alpha/(2*np.pi))
