@@ -5,9 +5,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from math import inf
 
-start = 215650  + 12000 # usable data starts here
-data = np.loadtxt("data/ecg_data.csv", delimiter=",", 
-                  skiprows=start, max_rows=12000)
+#start = 215650  + 12000 # usable data starts here
+data = np.loadtxt("data/ecg_data15.csv", delimiter=",")
+                  #skiprows=start, max_rows=12000)
 
 # =============================================================================
 # Build butterworth filer (bandpass)

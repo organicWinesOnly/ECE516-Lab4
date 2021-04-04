@@ -104,8 +104,9 @@ class PolynomialCT:
         times = np.arange(self.z.size) // self.fs  # divide by sampling rate
         freq_rot = self._FRotationOperator(times)
         freq_shift = self._FShiftOperator(times)
+        # gaussian window
         window = 1/(np.sqrt(2 * np.pi) * self.win_size // 2) *\
-                 get_window(('gaussian', self.win_size // 2), self.win_size)  # gaussian window
+                 get_window(('gaussian', self.win_size // 2), self.win_size)  
 
         for i in range(num_time_bins):
             t = i * self.win_size
@@ -187,23 +188,35 @@ class PolynomialCT:
             count += 1
 
 if __name__ == "__main__":
-    #sig_data = np.loadtxt('data/butt_filt_data.csv', skiprows=1000,
-    #                      max_rows=10340)
-    #pctTest = PolynomialCT(sig_data, 268, 512)
-    #pctTest.Run(0.0005, 7)
-    #print(pctTest.alpha)
+    sig_data = np.loadtxt('data/ecg_data15.csv', skiprows=1000,
+                          max_rows=10340)
+    #pctTest = PolynomialCT(sig_data, 268, 75, 4)
+    #pctTest.Run(0.0005, 2)
+    #sig_data = sig_data - np.mean(sig_data)
+    f,t, Zxx = stft(sig_data, 268,nperseg=75, noverlap=65)
+    plt.pcolormesh(t, f, np.abs((Zxx)), vmin=5e3,
+                    shading='gouraud',cmap=cm.get_cmap("jet")) 
+    plt.show()
+    # print(Zxx.shape, f.shape)
+    plt.plot(np.abs(Zxx[3,:]))
+    plt.show()
+
+    #ff = np.fft.fft(hilbert(sig_data))
+    #freq = np.fft.fftfreq(ff.size, 1/268)
+    #plt.plot(freq, ff)
+    #plt.show()
     
     # Test Case
     def s(t):
         return np.sin(2*np.pi*(10*t + 5/4*t**2 + 1/9*t**3 - 1/160*t** 4))
     
-    sample_freq = 200  # hz
-    time = np.arange(0, 15, 1/400)
-    # noise from a normal distribution with (mean, std) = (0, sqrt(3))
-    np.random.seed(123)
-    noise = np.random.normal(0, np.sqrt(3),time.size)
-    discrete_signal = s(time) #+ noise
-    signal = hilbert(discrete_signal)
-    pctTest = PolynomialCT(signal, sample_freq, 516, poly_order=4)
-    pctTest.Run(0.001, 3)
-    print(pctTest.alpha/(2*np.pi))
+    # sample_freq = 200  # hz
+    # time = np.arange(0, 15, 1/400)
+    # # noise from a normal distribution with (mean, std) = (0, sqrt(3))
+    # np.random.seed(123)
+    # noise = np.random.normal(0, np.sqrt(3),time.size)
+    # discrete_signal = s(time) #+ noise
+    # signal = hilbert(discrete_signal)
+    # pctTest = PolynomialCT(signal, sample_freq, 516, poly_order=4)
+    # pctTest.Run(0.001, 3)
+    # print(pctTest.alpha/(2*np.pi))
