@@ -65,7 +65,7 @@ def next_loc(peaks, loc, fs):
     return np.searchsorted(peaks, int(n_loc))
     
     
-def beat_classifier(freq_comp, fs):
+def beat_finder(freq_comp, fs):
     """ Returns the locations of the QRS complexes in freq_comp
 
         ==== Params ====
@@ -142,7 +142,23 @@ def beat_classifier(freq_comp, fs):
                     noise_threshold = freq_comp[loc]
                     T1, T2 = threshold(peak, signal_threshold, noise_threshold)
             i += 1
-    return beat_locations
+    return np.array(beat_locations)
+
+def beat_classifier(f1, f2, fs):
+    loc1 = beat_finder(f1, fs)
+    loc2 = beat_finder(f2, fs)
+    matching =  []
+    
+    for element in loc1:
+        peak_range = np.arange(element -5, element+5)
+        check = np.isin(peak_range, loc2)
+        if np.any(check):
+            x = int(peak_range[check])
+            mid = np.round((x + element) / 2)
+            matching.append(int(mid))
+    return np.array(matching)
+
+
 
 if __name__ == '__main__':
     # np.random.seed(123)
@@ -152,7 +168,7 @@ if __name__ == '__main__':
     # time = np.linspace(0, 10, 800)
     # fs = 100
     # ss = s(time) + np.random.normal(0, 0.3, time.size)
-    # loc = beat_classifier(ss, fs)
+    # loc = beat_finder(ss, fs)
     # plt.plot(time, ss, 'k')
     # plt.plot(time[loc], ss[loc], 'D')
     # plt.show()
@@ -160,7 +176,7 @@ if __name__ == '__main__':
     sig = np.loadtxt("data/butt_filt_data.csv", delimiter=",", skiprows=1000,
                         max_rows=20000)
     sig = sig / np.max(sig)
-    loc = beat_classifier(sig, 268)
+    loc = beat_finder(sig, 268)
     # loc = find_peaks(sig)[0]
     plt.plot(sig, 'k')
     plt.plot(np.arange(sig.size)[loc], sig[loc], 'rD')
