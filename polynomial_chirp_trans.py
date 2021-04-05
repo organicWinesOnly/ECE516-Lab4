@@ -82,10 +82,10 @@ class PolynomialCT:
 
             Output: (num_time_bins, win_size) numpy.ndarray
         """
-        time_win = times[t0: t0 + self.win_size]
+        time_win = times[t0 - self.win_size // 2: t0 + self.win_size // 2]
 
         sum_ = np.zeros(self.win_size, dtype='complex')
-        mid_value = t0 #+ self.win_size // 2 
+        mid_value = times[t0]
         for k in range(2, self._polynomial.degree() + 2):
             sum_ = sum_ + self.alpha[k-1] * time_win ** (k-1) * mid_value
         return np.exp(1j * sum_)
@@ -109,12 +109,12 @@ class PolynomialCT:
                  get_window(('gaussian', self.win_size // 2), self.win_size)  
 
         for m in range(num_stfts):
-            for i in range(num_time_bins):
+            for i in range(1, num_time_bins):
                 t = i * (self.win_size - self.overlap)
                 if (t + self.win_size) > self.z.size:
                     continue
-                x = self.z[t:t + self.win_size] *\
-                        freq_rot[t:t + self.win_size]
+                x = self.z[t - self.win_size // 2:t + self.win_size // 2 ] *\
+                        freq_rot[t - self.win_size // 2:t + self.win_size //2]
                 # further transform the signal with the correct shift operator
                 freq_shift = self._FShiftOperator(times, t)
                 x_transform = x * window * freq_shift
@@ -134,28 +134,27 @@ class PolynomialCT:
 
     # complete
     def REN(self, pct):
-        # frequency correction due to infinitite integral
+        # frequency correction due to infinite integral
         integrand = np.log10(np.power(np.abs(pct), 3))
         return -1 * romb(romb(integrand, axis=1), axis=0)
 
     def _update_polynomial(self):
         # generate a line
-        print(self.alpha)
         num_time_bins = self.z.size // (self.win_size - self.overlap) # + 1
         num_freq_bins = self.win_size // 2
         # scale the bins
-        freq_values = 2 * np.arange(0,num_freq_bins) *\
+        freq_values = np.arange(0,num_freq_bins) *\
                       (self.fs / self.win_size) 
         tfd_peak = freq_values[np.argmax(np.abs(self.tfd), axis=0)]
         time_values = np.linspace(0,num_time_bins,tfd_peak.size) *\
                       ((self.win_size - self.overlap) / self.fs)
-        fitted_polynomial = self._polynomial.fit(time_values,
-                                                 tfd_peak,
+        fitted_polynomial = self._polynomial.fit(time_values[1:],
+                                                 tfd_peak[1:],
                                                  self.poly_order)
         self._polynomial = fitted_polynomial.convert().copy()
         self.alpha = self._polynomial.coef
-        plt.plot(time_values , tfd_peak, 'r.')
-        plt.plot(time_values, polyval(time_values, self.alpha, 'k'))
+        plt.plot(time_values[1:], tfd_peak[1:], 'r.')
+        plt.plot(time_values[1:], polyval(time_values[1:], self.alpha, 'k'))
         plt.show()
 
     def PCT(self, initial_state=False):
@@ -200,37 +199,18 @@ class PolynomialCT:
             count += 1
 
 if __name__ == "__main__":
-    sig_data = np.loadtxt('data/ecg_data15.csv', skiprows=1000,
-                          max_rows=10340)
-    sig_data = sig_data - np.mean(sig_data)
-    # pctTest = PolynomialCT(sig_data, 268, 75, 65, 4)
-    # pctTest.Run(0.0005, 2)
-    # plt.plot(np.abs(pctTest.tfd[4,:]))
-    # plt.show()
-    # f,t, Zxx = stft(sig_data, 268, window=('gaussian', 36),
-    #         nperseg=75,noverlap=65)
-    # plt.pcolormesh(t, f, np.abs((Zxx)),
-    #                 shading='gouraud',cmap=cm.get_cmap("jet")) 
-    # print(pctTest.tfd.shape)
-    # print(Zxx.shape)
-    # plt.show()
-    # plt.plot(np.abs(Zxx[4,:]))
-    # plt.show()
-    # print(Zxx.shape, f.shape)
-
-    
-    # Test Case
+    # Test case
     def s(t):
-        return np.sin(2*np.pi*(10*t + 5/4*t**2 + 1/9*t**3 - 1/160*t** 4))
+        return np.sin(4*np.pi*(10*t + 5/4*t**2 + 1/9*t**3 - 1/160*t** 4))
     
     sample_freq = 200  # hz
     time = np.arange(0, 15, 1/400)
     # noise from a normal distribution with (mean, std) = (0, sqrt(3))
     np.random.seed(123)
     noise = np.random.normal(0, np.sqrt(3),time.size)
-    discrete_signal = s(time) #+ noise
+    discrete_signal = s(time) + noise
     signal = hilbert(discrete_signal)
     pctTest = PolynomialCT(signal, sample_freq, 512, poly_order=3)
-    pctTest.Run(0.001, 3)
+    pctTest.Run(0.001, 5)
     print(pctTest.alpha)
     print(pctTest.alpha/(2*np.pi))
