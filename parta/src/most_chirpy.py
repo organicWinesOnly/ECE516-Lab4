@@ -6,7 +6,7 @@ from polynomial_chirp_trans import PolynomialCT
 from scipy.signal import get_window
 from skimage.transform import radon
 
-signal_data = np.loadtxt('data/ecg_data15.csv', skiprows=1000)
+signal_data = np.loadtxt('../data/ecg_data15.csv', skiprows=1000)
 sample_rate = 268
 signal_data = signal_data - np.mean(signal_data)
 size_of_signal = signal_data.size

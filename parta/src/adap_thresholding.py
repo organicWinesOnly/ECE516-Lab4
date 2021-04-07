@@ -173,7 +173,7 @@ if __name__ == '__main__':
     # plt.plot(time[loc], ss[loc], 'D')
     # plt.show()
     # print(loc)
-    sig = np.loadtxt("data/butt_filt_data.csv", delimiter=",", skiprows=1000,
+    sig = np.loadtxt("../data/butt_filt_data.csv", delimiter=",", skiprows=1000,
                         max_rows=20000)
     sig = sig / np.max(sig)
     loc = beat_finder(sig, 268)

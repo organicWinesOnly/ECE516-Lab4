@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from math import inf
 
 #start = 215650  + 12000 # usable data starts here
-data = np.loadtxt("data/ecg_data15.csv", delimiter=",")
+data = np.loadtxt("../data/ecg_data15.csv", delimiter=",")
                   #skiprows=start, max_rows=12000)
 
 # =============================================================================
@@ -37,4 +37,4 @@ filt = sosfilt(sos, data)
 plt.plot(filt, 'r')
 plt.title("butterworth filter")
 plt.show()
-np.savetxt("data/butt_filt_data.csv", filt, delimiter=",")
+np.savetxt("../data/butt_filt_data.csv", filt, delimiter=",")

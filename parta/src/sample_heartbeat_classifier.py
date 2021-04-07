@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from adap_thresholding import beat_classifier, beat_finder
 from polynomial_chirp_trans import PolynomialCT
 
-signal_data = np.loadtxt('data/ecg_data15.csv', skiprows=105520,
+signal_data = np.loadtxt('../data/ecg_data15.csv', skiprows=105520,
                       max_rows=3980)
 sample_rate = 268
 signal_data = signal_data - np.mean(signal_data)
