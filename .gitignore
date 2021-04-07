@@ -3,3 +3,6 @@ __pycache__/
 .swp/
 information/
 romber_int.py
+*.~
+*.swp
+*.swo
