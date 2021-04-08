@@ -24,7 +24,7 @@ of data that was found to be the most chirpy were samples in the range
 (95520, 99500) which corresponds to the time 1:00:01 to 1:02:30.
 
 Chirpiest TFD:
-![](chirpiest_tfd.png)
+![](parta/results/chirpiest_tfd.png)
 
 Other chirping segments included:
 1. (0:03:05, 0:05:34)
@@ -41,16 +41,16 @@ Other chirping segments included:
 ### ff plane computations
 Using ff.m >> a matlab file created by Steve Mann to build a Frequency Frequency
 plot, the FF planes for all the above segments.
-![](ff-slices/seg1.jpg)
-![](ff-slices/seg2.jpg)
-![](ff-slices/seg3.jpg)
-![](ff-slices/seg4.jpg)
-![](ff-slices/seg5.jpg)
-![](ff-slices/seg6.jpg)
-![](ff-slices/seg7.jpg)
-![](ff-slices/seg8.jpg)
-![](ff-slices/seg9.jpg)
-![](ff-slices/seg10.jpg)
+![](parta/ff-slices/seg1.jpg)
+![](parta/ff-slices/seg2.jpg)
+![](parta/ff-slices/seg3.jpg)
+![](parta/ff-slices/seg4.jpg)
+![](parta/ff-slices/seg5.jpg)
+![](parta/ff-slices/seg6.jpg)
+![](parta/ff-slices/seg7.jpg)
+![](parta/ff-slices/seg8.jpg)
+![](parta/ff-slices/seg9.jpg)
+![](parta/ff-slices/seg10.jpg)
 
 ### Heartbeat detector (Bonus)
 Using the time-frequency distribution (TFD) calculated from a (PCT) it became
@@ -66,7 +66,13 @@ the implementation of the threshold see 'adap_threshold.py'. For an example of
 how to find QRS complexes see, 'sample_heartbeat_classifier.py'. Some results
 for the chirpiest waveform are shown below.
 
-![](QRS_complex_results.png)
+![](parta/results/QRS_complex_results.png)
+
+## Video Orbits (Part B)
+Below are the results of the image transformation between two chirped (panned)
+images and a non paned image. The code can be found under 'partb/src'.
+
+![](partb/results/chirped_images.png)
 
 ### References
 [1] Z. Peng, G. Meng, F. Chu, Z. Lang, W. Zhang, and Y. Yang, “Poly- nomial
