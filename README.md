@@ -72,7 +72,7 @@ for the chirpiest waveform are shown below.
 Below are the results of the image transformation between two chirped (panned)
 images and a non paned image. The code can be found under 'partb/src'.
 
-![](partb/results/chirped_images.png)
+![](partb/output/chirped_images.png)
 
 ### References
 [1] Z. Peng, G. Meng, F. Chu, Z. Lang, W. Zhang, and Y. Yang, “Poly- nomial
